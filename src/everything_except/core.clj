@@ -7,7 +7,7 @@
 (def line-width 7)
 (def vertical-separator "|")
 (def line-base-column-char "-")
-(def cell-seperator "+")
+(def intermediate-cell-seperator "+")
 (def modifier-function-regex #"[A-Z]+\([A-Z]+_([A-Z]+)\)")
 
 (defn- get-keys-from-line [line]
@@ -66,13 +66,40 @@
         (map get-keys-from-line)
         (map get-line)))
 
-(defn- delimit-line [line]
-  (concat
-   (conj (interpose vertical-separator line) vertical-separator)
-   (list vertical-separator)))
+(defn- prepend-and-append-to [a-seq start end]
+  (-> a-seq
+      (#(apply list %) ,)
+      (conj , start)
+      (concat , (list end))))
 
-(defn- get-line-base [num-items]
+(defn- delimit-line [line]
+  (let [vertically-delimited (interpose vertical-separator line)]
+    (prepend-and-append-to vertically-delimited vertical-separator vertical-separator)))
+
+(defn- get-line-base [num-items cell-seperator start end]
   (->> (repeat-char line-base-column-char line-width)
        (repeat num-items ,)
        (interpose cell-seperator ,)
-       (apply str)))
+       (#(apply str (prepend-and-append-to % start end) ,))))
+
+(defn- get-boundary-line-base [num-items start end]
+  (get-line-base num-items line-base-column-char start end))
+
+(defn- get-intermediate-line-base [num-items]
+  (get-line-base num-items intermediate-cell-seperator vertical-separator vertical-separator))
+
+(defn- structure-lines [keymap]
+  (let [lines (get-lines-from-keymap keymap)
+        delimited-lines (map delimit-line lines)
+        joined-lines (map #(apply str %) delimited-lines)
+        num-cells-in-line (-> lines first count)
+        line-base (get-intermediate-line-base num-cells-in-line)
+        start-base (get-boundary-line-base num-cells-in-line \, \.)
+        end-base (get-boundary-line-base num-cells-in-line \` \')
+        intermediate-lines (interpose line-base joined-lines)]
+    (prepend-and-append-to intermediate-lines start-base end-base)))
+
+(defn draw-lines [keymap]
+  (let [structured-lines (structure-lines keymap)]
+    (doseq [line structured-lines]
+      (println line))))
