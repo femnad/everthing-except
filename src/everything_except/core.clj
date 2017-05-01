@@ -6,12 +6,9 @@
 (def keycode-prefix-length (count keycode-prefix))
 (def line-width 7)
 (def vertical-separator "|")
+(def line-base-column-char "-")
 (def cell-seperator "+")
 (def modifier-function-regex #"[A-Z]+\([A-Z]+_([A-Z]+)\)")
-
-(defn- get-last-letter [a-string]
-  (let [length (count a-string)]
-        (subs a-string (dec length) length)))
 
 (defn- get-keys-from-line [line]
   (let [raw-tokens (s/split line #"\{|\}|,")]
@@ -34,9 +31,6 @@
     (get-suffix key)
     (parse-modifier-function key)))
 
-(defn- divide-and-round-up [dividend divisor]
-  (inc (Math/floorDiv dividend divisor)))
-
 (defn- divide-and-round-down [dividend divisor]
   (Math/floorDiv dividend divisor))
 
@@ -56,17 +50,6 @@
           key
           (repeat-char " " (:right margin)))))
 
-(defn- print-cell-base []
-  (print cell-seperator)
-  (print (repeat-char "-" line-width)))
-
-(defn- print-base-line [num-cells]
-  (if (= 0 num-cells)
-    (println)
-    (do
-      (print-cell-base)
-      (print-base-line (dec num-cells)))))
-
 (defn- get-line [keys]
   (let [short-form-keys (map get-short-form keys)]
     (loop [ks short-form-keys line-acc []]
@@ -78,8 +61,18 @@
                  (conj line-acc
                        (get-key head))))))))
 
-(defn generate-olkb-keymap-map [keymap]
-  (let [lines (s/split keymap #"\n")]
-    (->> lines
+(defn- get-lines-from-keymap [keymap]
+  (->> (s/split keymap #"\n")
         (map get-keys-from-line)
-        (map get-line))))
+        (map get-line)))
+
+(defn- delimit-line [line]
+  (concat
+   (conj (interpose vertical-separator line) vertical-separator)
+   (list vertical-separator)))
+
+(defn- get-line-base [num-items]
+  (->> (repeat-char line-base-column-char line-width)
+       (repeat num-items ,)
+       (interpose cell-seperator ,)
+       (apply str)))
