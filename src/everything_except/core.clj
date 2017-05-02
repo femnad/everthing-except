@@ -10,6 +10,8 @@
 (def intermediate-cell-seperator "+")
 (def modifier-function-regex #"[A-Z]+\([A-Z]+_([A-Z]+)\)")
 
+(def exceptions {"_______" ""})
+
 (defn- get-keys-from-line [line]
   (let [raw-tokens (s/split line #"\{|\}|,")]
     (->>
@@ -20,16 +22,22 @@
 (defn- get-suffix [key]
   (subs key keycode-prefix-length))
 
+(defn- safe-fallback [key]
+  (subs key 0 (Math/min (count key)
+                        line-width)))
+
 (defn- parse-modifier-function [key]
   (let [modifier-function (re-find modifier-function-regex key)]
     (if (nil? modifier-function)
-      key
+      (safe-fallback key)
       (last modifier-function))))
 
 (defn- get-short-form [key]
-  (if (s/starts-with? key keycode-prefix)
-    (get-suffix key)
-    (parse-modifier-function key)))
+  (if (contains? exceptions key)
+    (get exceptions key)
+    (if (s/starts-with? key keycode-prefix)
+      (get-suffix key)
+      (parse-modifier-function key))))
 
 (defn- divide-and-round-down [dividend divisor]
   (Math/floorDiv dividend divisor))
@@ -88,6 +96,9 @@
 (defn- get-intermediate-line-base [num-items]
   (get-line-base num-items intermediate-cell-seperator vertical-separator vertical-separator))
 
+(defn- prepend-with [line prefix]
+  (str prefix line))
+
 (defn- structure-lines [keymap]
   (let [lines (get-lines-from-keymap keymap)
         delimited-lines (map delimit-line lines)
@@ -96,8 +107,9 @@
         line-base (get-intermediate-line-base num-cells-in-line)
         start-base (get-boundary-line-base num-cells-in-line \, \.)
         end-base (get-boundary-line-base num-cells-in-line \` \')
-        intermediate-lines (interpose line-base joined-lines)]
-    (prepend-and-append-to intermediate-lines start-base end-base)))
+        intermediate-lines (interpose line-base joined-lines)
+        structured-lines (prepend-and-append-to intermediate-lines start-base end-base)]
+    (map #(prepend-with % " * ") structured-lines)))
 
 (defn draw-lines [keymap]
   (let [structured-lines (structure-lines keymap)]
